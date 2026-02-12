@@ -7,7 +7,11 @@ import { sanitizeAlgorithmConfig } from '../config/sanitize';
 
 export function createInitialState(config: AlgorithmConfig): AlgorithmState {
   const sanitizedConfig = sanitizeAlgorithmConfig(config);
-  const data = generateData(sanitizedConfig.trueParams, sanitizedConfig.dataPoints);
+  const data = generateData(
+    sanitizedConfig.trueParams,
+    sanitizedConfig.knownSigma,
+    sanitizedConfig.observationCount,
+  );
   return {
     phase: 'IDLE',
     config: sanitizedConfig,
@@ -69,24 +73,26 @@ export function algorithmReducer(
       const lpCurrent = logPosterior(
         state.currentParams,
         state.data,
-        state.config.priorParams,
-        state.config.priorStdDevs,
+        state.config.knownSigma,
+        state.config.priorMuMeans,
+        state.config.priorMuStds,
       );
       const lpProposed = logPosterior(
         proposed,
         state.data,
-        state.config.priorParams,
-        state.config.priorStdDevs,
+        state.config.knownSigma,
+        state.config.priorMuMeans,
+        state.config.priorMuStds,
       );
       const logRatio = logAcceptanceRatio(lpCurrent, lpProposed);
       const alpha = acceptanceProbability(lpCurrent, lpProposed);
 
-      const invalidSigma = proposed.sigma <= 0;
+      const outOfSupportTau = proposed.tau < 0 || proposed.tau > 24;
       let msg: string;
-      if (invalidSigma) {
-        msg = `Proposed sigma = ${proposed.sigma.toFixed(3)} <= 0. Will be auto-rejected.`;
+      if (outOfSupportTau) {
+        msg = `Proposed τ = ${proposed.tau.toFixed(2)}h is outside [0, 24]. Will be auto-rejected.`;
       } else if (alpha >= 1) {
-        msg = `Acceptance probability = 100%. Posterior improved by ${Math.exp(logRatio).toFixed(2)}x.`;
+        msg = 'Acceptance probability = 100%. Proposed state is at least as plausible as current.';
       } else {
         msg = `Acceptance probability = ${(alpha * 100).toFixed(1)}%. Log ratio = ${logRatio.toFixed(3)}.`;
       }
@@ -106,7 +112,7 @@ export function algorithmReducer(
           newParams: state.currentParams,
         },
         statusMessage: msg,
-        statusType: invalidSigma ? 'warning' : 'info',
+        statusType: outOfSupportTau ? 'warning' : 'info',
       };
     }
 
@@ -195,8 +201,9 @@ export function algorithmReducer(
           current,
           state.data,
           state.config.proposalWidths,
-          state.config.priorParams,
-          state.config.priorStdDevs,
+          state.config.knownSigma,
+          state.config.priorMuMeans,
+          state.config.priorMuStds,
         );
         current = result.newParams;
 

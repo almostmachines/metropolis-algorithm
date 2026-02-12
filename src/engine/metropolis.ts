@@ -1,4 +1,9 @@
-import type { DataPoint, Params } from '../types';
+import type {
+  DataPoint,
+  Params,
+  PriorMuMeans,
+  PriorMuStds,
+} from '../types';
 import { randomNormal } from './random';
 import { logPosterior } from './model';
 
@@ -16,9 +21,9 @@ export interface StepResult {
 /** Propose new parameters by adding symmetric normal perturbation */
 export function propose(current: Params, widths: Params): Params {
   return {
-    slope: randomNormal(current.slope, widths.slope),
-    intercept: randomNormal(current.intercept, widths.intercept),
-    sigma: randomNormal(current.sigma, widths.sigma),
+    tau: randomNormal(current.tau, widths.tau),
+    mu1: randomNormal(current.mu1, widths.mu1),
+    mu2: randomNormal(current.mu2, widths.mu2),
   };
 }
 
@@ -57,12 +62,25 @@ export function step(
   current: Params,
   data: DataPoint[],
   widths: Params,
-  priorMeans: Params,
-  priorStdDevs: Params,
+  knownSigma: number,
+  priorMuMeans: PriorMuMeans,
+  priorMuStds: PriorMuStds,
 ): StepResult {
   const proposed = propose(current, widths);
-  const lpCurrent = logPosterior(current, data, priorMeans, priorStdDevs);
-  const lpProposed = logPosterior(proposed, data, priorMeans, priorStdDevs);
+  const lpCurrent = logPosterior(
+    current,
+    data,
+    knownSigma,
+    priorMuMeans,
+    priorMuStds,
+  );
+  const lpProposed = logPosterior(
+    proposed,
+    data,
+    knownSigma,
+    priorMuMeans,
+    priorMuStds,
+  );
   const logRatio = logAcceptanceRatio(lpCurrent, lpProposed);
   const alpha = acceptanceProbability(lpCurrent, lpProposed);
   const u = Math.random();

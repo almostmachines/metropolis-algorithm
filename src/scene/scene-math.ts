@@ -2,9 +2,9 @@ import type { AlgorithmState } from '../state/types';
 import type { Params } from '../types';
 
 export interface ParameterBounds {
-  slope: [number, number];
-  intercept: [number, number];
-  sigma: [number, number];
+  tau: [number, number];
+  mu1: [number, number];
+  mu2: [number, number];
 }
 
 /** Compute axis bounds from all sample points, true mode, and current position. */
@@ -18,26 +18,26 @@ export function computeBounds(state: AlgorithmState): ParameterBounds {
   if (state.proposedParams) allParams.push(state.proposedParams);
 
   const pad = 0.5;
-  let minSlope = Infinity;
-  let maxSlope = -Infinity;
-  let minIntercept = Infinity;
-  let maxIntercept = -Infinity;
-  let minSigma = Infinity;
-  let maxSigma = -Infinity;
+  let minTau = Infinity;
+  let maxTau = -Infinity;
+  let minMu1 = Infinity;
+  let maxMu1 = -Infinity;
+  let minMu2 = Infinity;
+  let maxMu2 = -Infinity;
 
   for (const p of allParams) {
-    if (p.slope < minSlope) minSlope = p.slope;
-    if (p.slope > maxSlope) maxSlope = p.slope;
-    if (p.intercept < minIntercept) minIntercept = p.intercept;
-    if (p.intercept > maxIntercept) maxIntercept = p.intercept;
-    if (p.sigma < minSigma) minSigma = p.sigma;
-    if (p.sigma > maxSigma) maxSigma = p.sigma;
+    if (p.tau < minTau) minTau = p.tau;
+    if (p.tau > maxTau) maxTau = p.tau;
+    if (p.mu1 < minMu1) minMu1 = p.mu1;
+    if (p.mu1 > maxMu1) maxMu1 = p.mu1;
+    if (p.mu2 < minMu2) minMu2 = p.mu2;
+    if (p.mu2 > maxMu2) maxMu2 = p.mu2;
   }
 
   return {
-    slope: [minSlope - pad, maxSlope + pad],
-    intercept: [minIntercept - pad, maxIntercept + pad],
-    sigma: [Math.max(0, minSigma - pad), maxSigma + pad],
+    tau: [Math.max(0, minTau - pad), Math.min(24, maxTau + pad)],
+    mu1: [minMu1 - pad, maxMu1 + pad],
+    mu2: [minMu2 - pad, maxMu2 + pad],
   };
 }
 
@@ -53,8 +53,8 @@ export function paramsToPosition(
   bounds: ParameterBounds,
 ): [number, number, number] {
   return [
-    normalize(params.slope, bounds.slope),
-    normalize(params.intercept, bounds.intercept),
-    normalize(params.sigma, bounds.sigma),
+    normalize(params.tau, bounds.tau),
+    normalize(params.mu1, bounds.mu1),
+    normalize(params.mu2, bounds.mu2),
   ];
 }

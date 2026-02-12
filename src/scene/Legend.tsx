@@ -1,7 +1,7 @@
 export function Legend() {
   const items = [
-    { color: 'bg-amber-400', label: 'True Mode' },
-    { color: 'bg-cyan-400', label: 'Current Position' },
+    { color: 'bg-amber-400', label: 'True Values' },
+    { color: 'bg-cyan-400', label: 'Current Hypothesis' },
     { color: 'bg-white', label: 'Proposal' },
     { color: 'bg-blue-500', label: 'Accepted (early)' },
     { color: 'bg-purple-500', label: 'Accepted (late)' },

@@ -28,9 +28,9 @@ export function PointCloud({
 
   const toPos = useCallback(
     (p: Params): [number, number, number] => [
-      normalize(p.slope, bounds.slope),
-      normalize(p.intercept, bounds.intercept),
-      normalize(p.sigma, bounds.sigma),
+      normalize(p.tau, bounds.tau),
+      normalize(p.mu1, bounds.mu1),
+      normalize(p.mu2, bounds.mu2),
     ],
     [bounds],
   );

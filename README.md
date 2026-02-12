@@ -1,21 +1,25 @@
-# Metropolis Algorithm Linear Regression
+# Metropolis Algorithm Change-Point Explorer
 
-An interactive 3D visualization of the Metropolis algorithm applied to Bayesian linear regression. Watch the posterior distribution being constructed one sample at a time, see proposals accepted or rejected, and observe the chain converge to the true mode.
-
-![Screenshot of the explorer after 500 samples, showing the point cloud clustered around the true mode](screenshot.jpg)
+An interactive 3D visualization of the Metropolis algorithm applied to Bayesian change-point detection. The app estimates when a process changed over a 24-hour period, plus the mean level before and after the change.
 
 ## What it does
 
-The app fits a Bayesian linear regression model with three parameters — **slope**, **intercept**, and **sigma** (noise standard deviation) — using the Metropolis MCMC algorithm. You start from a deliberately wrong initial guess and watch the chain explore parameter space until it finds the region of highest posterior density.
+The app fits a change-point model with three unknown parameters:
 
-**Step-by-step mode** lets you see each proposal individually:
+- **τ**: the change time (hours in `[0, 24]`)
+- **μ₁**: mean observation level before the change
+- **μ₂**: mean observation level after the change
 
-1. A white proposal point appears with a line connecting it to the current position
-2. The control panel shows the log posterior ratio and acceptance probability
-3. You click "Accept" — the algorithm rolls the dice and the proposal is either accepted (green) or rejected (red)
-4. Repeat
+Observation noise **sigma is known and fixed** during sampling (but editable in settings).
 
-**Full-auto mode** runs ~5 samples per frame until the target count is reached.
+You can run the sampler step-by-step:
+
+1. A white proposal point appears with a line to the current state
+2. The control panel shows log posterior ratio and acceptance probability
+3. Click **Accept** to run the Metropolis accept/reject draw
+4. Repeat or switch to full auto mode
+
+**Full Auto** runs batches of steps every animation frame until the target sample count is reached.
 
 ## Getting started
 
@@ -39,65 +43,74 @@ Open http://localhost:5173 in your browser.
 | **Scroll** | Zoom in/out |
 | **Right-click + drag** | Pan |
 
-All parameter inputs (true values, starting point, proposal widths, sample counts) are editable when the algorithm is idle.
+All settings are editable while the algorithm is idle.
 
 ## 3D scene legend
 
 | Marker | Meaning |
 |--------|---------|
-| Gold octahedron | True parameter values |
+| Gold octahedron | True values `(τ, μ₁, μ₂)` |
 | Cyan sphere | Current chain position |
 | White sphere + line | Pending proposal |
 | Blue dots | Accepted samples (early) |
 | Purple dots | Accepted samples (late) |
 | Gray dots | Burn-in samples |
 
-The blue-to-purple gradient reflects sampling order, making it easy to see how the chain migrates over time.
+The accepted-sample gradient shows chain progression over time.
 
 ## Statistical model
 
-- **Data**: `y_i = slope * x_i + intercept + Normal(0, sigma)` with `x_i ~ Uniform(0, 10)`
-- **Likelihood**: Normal log-likelihood, computed entirely in log-space
-- **Priors**: independent normals centered at the **Prior Belief** settings, with per-parameter prior standard deviations configurable in the UI and sigma constrained to `>= 0.01`
-- **Proposal**: Symmetric normal perturbation with configurable widths per parameter
+- **Data generation**: `time_i ~ Uniform(0, 24)` and
+  - if `time_i < τ`: `y_i ~ Normal(μ₁, knownSigma)`
+  - else: `y_i ~ Normal(μ₂, knownSigma)`
+- **Likelihood**: product of normal densities, evaluated in log-space
+- **Prior**:
+  - `τ ~ Uniform(0, 24)`
+  - `μ₁ ~ Normal(priorMean₁, priorStd₁)`
+  - `μ₂ ~ Normal(priorMean₂, priorStd₂)`
+- **Proposal**: symmetric normal perturbation with configurable widths for `τ`, `μ₁`, `μ₂`
 - **Acceptance**: `alpha = min(1, exp(log_posterior_proposed - log_posterior_current))`
 
 ## Project structure
 
-```
+```text
 src/
-  engine/                  # Pure math, zero React imports
+  engine/
     random.ts              # Box-Muller normal sampling
-    data-generator.ts      # Synthetic observed data
+    data-generator.ts      # Synthetic change-point observations
     model.ts               # logLikelihood, logPrior, logPosterior
     metropolis.ts          # propose, acceptanceProbability, step
 
-  state/                   # State management
-    types.ts               # State shape and action types
+  state/
+    types.ts               # State shape and actions
     algorithm-state.ts     # useReducer state machine
 
-  scene/                   # 3D visualization (react-three-fiber)
-    SceneRoot.tsx           # Canvas, camera, lighting, OrbitControls
-    PointCloud.tsx          # InstancedMesh for sample points
-    TrueMode.tsx            # Gold marker at true values
-    CurrentHypothesis.tsx   # Cyan pulsing sphere
-    ProposalPoint.tsx       # White sphere + connecting line
-    AxisSystem.tsx          # 3D axes, grid, tick labels
-    Legend.tsx              # Overlay legend
+  scene/
+    SceneRoot.tsx          # Canvas, camera, lighting, controls
+    PointCloud.tsx         # InstancedMesh sample cloud
+    AxisSystem.tsx         # 3D axes for τ, μ₁, μ₂
+    TrueMode.tsx           # Gold marker at true values
+    CurrentHypothesis.tsx  # Cyan current state marker
+    ProposalPoint.tsx      # White proposal marker + connecting line
+    Legend.tsx             # Scene legend overlay
 
-  ui/                      # Control panel
-    ControlPanel.tsx        # Container
-    StepControls.tsx        # Action buttons
-    ParameterInputs.tsx     # Numeric input fields
-    StatusDisplay.tsx       # Status messages + acceptance rate
-    ProgressBar.tsx         # Sampling progress
+  ui/
+    ControlPanel.tsx
+    StepControls.tsx
+    ParameterInputs.tsx
+    StatusDisplay.tsx
+    ProgressBar.tsx
+    ResultsDisplay.tsx
+
+  config/
+    sanitize.ts            # Input/config sanitization
 ```
 
 ## Built with
 
 - [React](https://react.dev) + [TypeScript](https://www.typescriptlang.org) + [Vite](https://vite.dev)
-- [react-three-fiber](https://r3f.docs.pmnd.rs) + [@react-three/drei](https://drei.docs.pmnd.rs) for declarative 3D
-- [Tailwind CSS v4](https://tailwindcss.com) for styling
+- [react-three-fiber](https://r3f.docs.pmnd.rs) + [@react-three/drei](https://drei.docs.pmnd.rs)
+- [Tailwind CSS v4](https://tailwindcss.com)
 
 ## License
 

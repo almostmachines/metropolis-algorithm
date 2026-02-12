@@ -38,24 +38,15 @@ export function ControlPanel({
     const samples = state.acceptedSamples;
     if (samples.length < 2) return null;
     const n = samples.length;
-    const mean = { slope: 0, intercept: 0, sigma: 0 };
+    const mean = { tau: 0, mu1: 0, mu2: 0 };
     for (const s of samples) {
-      mean.slope += s.params.slope;
-      mean.intercept += s.params.intercept;
-      mean.sigma += s.params.sigma;
+      mean.tau += s.params.tau;
+      mean.mu1 += s.params.mu1;
+      mean.mu2 += s.params.mu2;
     }
-    mean.slope /= n;
-    mean.intercept /= n;
-    mean.sigma /= n;
-    const variance = { slope: 0, intercept: 0, sigma: 0 };
-    for (const s of samples) {
-      variance.slope += (s.params.slope - mean.slope) ** 2;
-      variance.intercept += (s.params.intercept - mean.intercept) ** 2;
-      variance.sigma += (s.params.sigma - mean.sigma) ** 2;
-    }
-    variance.slope /= n - 1;
-    variance.intercept /= n - 1;
-    variance.sigma /= n - 1;
+    mean.tau /= n;
+    mean.mu1 /= n;
+    mean.mu2 /= n;
 
     const percentile = (sorted: number[], p: number) => {
       const idx = (p / 100) * (sorted.length - 1);
@@ -65,17 +56,34 @@ export function ControlPanel({
       return sorted[lo] + (idx - lo) * (sorted[hi] - sorted[lo]);
     };
 
-    const slopeVals = samples.map(s => s.params.slope).sort((a, b) => a - b);
-    const interceptVals = samples.map(s => s.params.intercept).sort((a, b) => a - b);
-    const sigmaVals = samples.map(s => s.params.sigma).sort((a, b) => a - b);
+    const tauVals = samples.map((s) => s.params.tau).sort((a, b) => a - b);
+    const mu1Vals = samples.map((s) => s.params.mu1).sort((a, b) => a - b);
+    const mu2Vals = samples.map((s) => s.params.mu2).sort((a, b) => a - b);
+    const effectVals = samples
+      .map((s) => s.params.mu2 - s.params.mu1)
+      .sort((a, b) => a - b);
+
+    const probAfternoon = samples.filter((s) => s.params.tau > 12).length / n;
+    const prob2To4 =
+      samples.filter((s) => s.params.tau > 14 && s.params.tau < 16).length / n;
 
     const ci95 = {
-      slope: [percentile(slopeVals, 2.5), percentile(slopeVals, 97.5)] as [number, number],
-      intercept: [percentile(interceptVals, 2.5), percentile(interceptVals, 97.5)] as [number, number],
-      sigma: [percentile(sigmaVals, 2.5), percentile(sigmaVals, 97.5)] as [number, number],
+      tau: [percentile(tauVals, 2.5), percentile(tauVals, 97.5)] as [number, number],
+      mu1: [percentile(mu1Vals, 2.5), percentile(mu1Vals, 97.5)] as [number, number],
+      mu2: [percentile(mu2Vals, 2.5), percentile(mu2Vals, 97.5)] as [number, number],
+      effectSize: [
+        percentile(effectVals, 2.5),
+        percentile(effectVals, 97.5),
+      ] as [number, number],
     };
 
-    return { mean, variance, ci95 };
+    return {
+      mean,
+      ci95,
+      effectSizeMean: mean.mu2 - mean.mu1,
+      probabilityAfternoon: probAfternoon,
+      probability2To4: prob2To4,
+    };
   }, [state.acceptedSamples]);
 
   return (
@@ -113,21 +121,21 @@ export function ControlPanel({
               Proposal Details
             </div>
             <div className="text-slate-400">
-              Slope: {state.currentParams.slope.toFixed(3)} →{' '}
+              τ: {state.currentParams.tau.toFixed(3)}h →{' '}
               <span className="text-white">
-                {state.stepResult.proposed.slope.toFixed(3)}
+                {state.stepResult.proposed.tau.toFixed(3)}h
               </span>
             </div>
             <div className="text-slate-400">
-              Intercept: {state.currentParams.intercept.toFixed(3)} →{' '}
+              μ₁: {state.currentParams.mu1.toFixed(3)} →{' '}
               <span className="text-white">
-                {state.stepResult.proposed.intercept.toFixed(3)}
+                {state.stepResult.proposed.mu1.toFixed(3)}
               </span>
             </div>
             <div className="text-slate-400">
-              Sigma: {state.currentParams.sigma.toFixed(3)} →{' '}
+              μ₂: {state.currentParams.mu2.toFixed(3)} →{' '}
               <span className="text-white">
-                {state.stepResult.proposed.sigma.toFixed(3)}
+                {state.stepResult.proposed.mu2.toFixed(3)}
               </span>
             </div>
             <div className="border-t border-slate-700 mt-2 pt-2 text-slate-400">
@@ -145,6 +153,7 @@ export function ControlPanel({
             estimates={estimates}
             data={state.data}
             trueParams={state.config.trueParams}
+            knownSigma={state.config.knownSigma}
           />
         )}
 

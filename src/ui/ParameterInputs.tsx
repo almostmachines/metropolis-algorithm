@@ -14,6 +14,7 @@ function NumberInput({
   disabled,
   step = 0.1,
   min,
+  max,
 }: {
   label: string;
   value: number;
@@ -21,6 +22,7 @@ function NumberInput({
   disabled: boolean;
   step?: number;
   min?: number;
+  max?: number;
 }) {
   return (
     <div className="flex flex-col gap-0.5 flex-1 min-w-0">
@@ -30,6 +32,7 @@ function NumberInput({
         value={value}
         step={step}
         min={min}
+        max={max}
         onChange={(e) => {
           const raw = e.target.value;
           if (raw.trim() === '') {
@@ -41,7 +44,10 @@ function NumberInput({
             onChange(value);
             return;
           }
-          onChange(min !== undefined ? Math.max(min, parsed) : parsed);
+          let clamped = parsed;
+          if (min !== undefined) clamped = Math.max(min, clamped);
+          if (max !== undefined) clamped = Math.min(max, clamped);
+          onChange(clamped);
         }}
         disabled={disabled}
         className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-sm text-slate-200 text-right disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-cyan-500"
@@ -62,158 +68,154 @@ export function ParameterInputs({
     <div className="space-y-3">
       <Section title="True Values">
         <NumberInput
-          label="Slope"
-          value={config.trueParams.slope}
+          label="τ (hours)"
+          value={config.trueParams.tau}
           onChange={(v) =>
-            update({ trueParams: { ...config.trueParams, slope: v } })
+            update({ trueParams: { ...config.trueParams, tau: v } })
+          }
+          disabled={disabled}
+          min={0}
+          max={24}
+        />
+        <NumberInput
+          label="μ₁ (mg/L)"
+          value={config.trueParams.mu1}
+          onChange={(v) =>
+            update({ trueParams: { ...config.trueParams, mu1: v } })
           }
           disabled={disabled}
         />
         <NumberInput
-          label="Intercept"
-          value={config.trueParams.intercept}
+          label="μ₂ (mg/L)"
+          value={config.trueParams.mu2}
           onChange={(v) =>
-            update({ trueParams: { ...config.trueParams, intercept: v } })
+            update({ trueParams: { ...config.trueParams, mu2: v } })
           }
           disabled={disabled}
-        />
-        <NumberInput
-          label="Sigma"
-          value={config.trueParams.sigma}
-          onChange={(v) =>
-            update({ trueParams: { ...config.trueParams, sigma: v } })
-          }
-          disabled={disabled}
-          min={0.01}
         />
       </Section>
 
-      <Section title="Evidence" className="w-1/2">
+      <Section title="Observed Data">
         <NumberInput
-          label="Data points"
-          value={config.dataPoints}
-          onChange={(v) => update({ dataPoints: Math.max(1, Math.round(v)) })}
+          label="Observations"
+          value={config.observationCount}
+          onChange={(v) =>
+            update({ observationCount: Math.max(1, Math.round(v)) })
+          }
           disabled={disabled}
-          step={5}
+          step={10}
           min={1}
+        />
+        <NumberInput
+          label="Known sigma"
+          value={config.knownSigma}
+          onChange={(v) => update({ knownSigma: v })}
+          disabled={disabled}
+          min={0.01}
+          step={0.05}
         />
       </Section>
 
       <Section title="Prior Belief">
-        <div className="flex-1 min-w-0 space-y-2">
-          <NumberInput
-            label="Slope"
-            value={config.priorParams.slope}
-            onChange={(v) =>
-              update({ priorParams: { ...config.priorParams, slope: v } })
-            }
-            disabled={disabled}
-          />
-          <NumberInput
-            label="Slope σ"
-            value={config.priorStdDevs.slope}
-            onChange={(v) =>
-              update({ priorStdDevs: { ...config.priorStdDevs, slope: v } })
-            }
-            disabled={disabled}
-            min={0.01}
-          />
-        </div>
-        <div className="flex-1 min-w-0 space-y-2">
-          <NumberInput
-            label="Intercept"
-            value={config.priorParams.intercept}
-            onChange={(v) =>
-              update({ priorParams: { ...config.priorParams, intercept: v } })
-            }
-            disabled={disabled}
-          />
-          <NumberInput
-            label="Intercept σ"
-            value={config.priorStdDevs.intercept}
-            onChange={(v) =>
-              update({ priorStdDevs: { ...config.priorStdDevs, intercept: v } })
-            }
-            disabled={disabled}
-            min={0.01}
-          />
-        </div>
-        <div className="flex-1 min-w-0 space-y-2">
-          <NumberInput
-            label="Sigma"
-            value={config.priorParams.sigma}
-            onChange={(v) =>
-              update({ priorParams: { ...config.priorParams, sigma: v } })
-            }
-            disabled={disabled}
-            min={0.01}
-          />
-          <NumberInput
-            label="Sigma σ"
-            value={config.priorStdDevs.sigma}
-            onChange={(v) =>
-              update({ priorStdDevs: { ...config.priorStdDevs, sigma: v } })
-            }
-            disabled={disabled}
-            min={0.01}
-          />
-        </div>
-      </Section>
-
-      <Section title="Initial Hypothesis">
         <NumberInput
-          label="Slope"
-          value={config.initialParams.slope}
-          onChange={(v) =>
-            update({ initialParams: { ...config.initialParams, slope: v } })
-          }
-          disabled={disabled}
-        />
-        <NumberInput
-          label="Intercept"
-          value={config.initialParams.intercept}
-          onChange={(v) =>
-            update({ initialParams: { ...config.initialParams, intercept: v } })
-          }
-          disabled={disabled}
-        />
-        <NumberInput
-          label="Sigma"
-          value={config.initialParams.sigma}
-          onChange={(v) =>
-            update({ initialParams: { ...config.initialParams, sigma: v } })
-          }
-          disabled={disabled}
-          min={0.01}
-        />
-      </Section>
-
-      <Section title="Proposal Widths">
-        <NumberInput
-          label="Slope"
-          value={config.proposalWidths.slope}
-          onChange={(v) =>
-            update({ proposalWidths: { ...config.proposalWidths, slope: v } })
-          }
-          disabled={disabled}
-          min={0.01}
-        />
-        <NumberInput
-          label="Intercept"
-          value={config.proposalWidths.intercept}
+          label="μ₁"
+          value={config.priorMuMeans.mu1}
           onChange={(v) =>
             update({
-              proposalWidths: { ...config.proposalWidths, intercept: v },
+              priorMuMeans: { ...config.priorMuMeans, mu1: v },
+            })
+          }
+          disabled={disabled}
+        />
+        <NumberInput
+          label="μ₂"
+          value={config.priorMuMeans.mu2}
+          onChange={(v) =>
+            update({
+              priorMuMeans: { ...config.priorMuMeans, mu2: v },
+            })
+          }
+          disabled={disabled}
+        />
+        <NumberInput
+          label="μ₁ sigma"
+          value={config.priorMuStds.mu1}
+          onChange={(v) =>
+            update({
+              priorMuStds: { ...config.priorMuStds, mu1: v },
             })
           }
           disabled={disabled}
           min={0.01}
         />
         <NumberInput
-          label="Sigma"
-          value={config.proposalWidths.sigma}
+          label="μ₂ sigma"
+          value={config.priorMuStds.mu2}
           onChange={(v) =>
-            update({ proposalWidths: { ...config.proposalWidths, sigma: v } })
+            update({
+              priorMuStds: { ...config.priorMuStds, mu2: v },
+            })
+          }
+          disabled={disabled}
+          min={0.01}
+        />
+      </Section>
+
+      <Section title="Initial Hypothesis">
+        <NumberInput
+          label="τ (hours)"
+          value={config.initialParams.tau}
+          onChange={(v) =>
+            update({ initialParams: { ...config.initialParams, tau: v } })
+          }
+          disabled={disabled}
+          min={0}
+          max={24}
+        />
+        <NumberInput
+          label="μ₁"
+          value={config.initialParams.mu1}
+          onChange={(v) =>
+            update({ initialParams: { ...config.initialParams, mu1: v } })
+          }
+          disabled={disabled}
+        />
+        <NumberInput
+          label="μ₂"
+          value={config.initialParams.mu2}
+          onChange={(v) =>
+            update({ initialParams: { ...config.initialParams, mu2: v } })
+          }
+          disabled={disabled}
+        />
+      </Section>
+
+      <Section title="Proposal Widths">
+        <NumberInput
+          label="τ"
+          value={config.proposalWidths.tau}
+          onChange={(v) =>
+            update({ proposalWidths: { ...config.proposalWidths, tau: v } })
+          }
+          disabled={disabled}
+          min={0.01}
+        />
+        <NumberInput
+          label="μ₁"
+          value={config.proposalWidths.mu1}
+          onChange={(v) =>
+            update({
+              proposalWidths: { ...config.proposalWidths, mu1: v },
+            })
+          }
+          disabled={disabled}
+          min={0.01}
+        />
+        <NumberInput
+          label="μ₂"
+          value={config.proposalWidths.mu2}
+          onChange={(v) =>
+            update({ proposalWidths: { ...config.proposalWidths, mu2: v } })
           }
           disabled={disabled}
           min={0.01}

@@ -1,7 +1,13 @@
-import type { DataPoint, Params } from '../types';
+import type {
+  DataPoint,
+  Params,
+  PriorMuMeans,
+  PriorMuStds,
+} from '../types';
 
 const LOG_2PI = Math.log(2 * Math.PI);
-const MIN_SIGMA = 0.01;
+const DAY_START = 0;
+const DAY_END = 24;
 
 /** Log of the normal PDF */
 function logNormalPdf(x: number, mean: number, std: number): number {
@@ -9,39 +15,49 @@ function logNormalPdf(x: number, mean: number, std: number): number {
   return -0.5 * (LOG_2PI + 2 * Math.log(std) + z * z);
 }
 
-/** Log-likelihood: product of normal densities for all data points */
-export function logLikelihood(params: Params, data: DataPoint[]): number {
-  if (params.sigma <= 0) return -Infinity;
+/** Log-likelihood under change-point model with known observation sigma */
+export function logLikelihood(
+  params: Params,
+  data: DataPoint[],
+  knownSigma: number,
+): number {
+  if (knownSigma <= 0) return -Infinity;
+
   let ll = 0;
-  for (const { x, y } of data) {
-    const predicted = params.slope * x + params.intercept;
-    ll += logNormalPdf(y, predicted, params.sigma);
+  for (const { time, value } of data) {
+    const mean = time < params.tau ? params.mu1 : params.mu2;
+    ll += logNormalPdf(value, mean, knownSigma);
   }
   return ll;
 }
 
-/** Log-prior: independent normals centered at configured prior belief means */
-export function logPrior(params: Params, priorMeans: Params, priorStdDevs: Params): number {
-  if (params.sigma < MIN_SIGMA) return -Infinity;
-  if (priorStdDevs.slope <= 0 || priorStdDevs.intercept <= 0 || priorStdDevs.sigma <= 0) {
+/** Log-prior: τ uniform on [0,24], μ₁ and μ₂ normal around configurable means/stds */
+export function logPrior(
+  params: Params,
+  priorMuMeans: PriorMuMeans,
+  priorMuStds: PriorMuStds,
+): number {
+  if (params.tau < DAY_START || params.tau > DAY_END) {
     return -Infinity;
   }
+  if (priorMuStds.mu1 <= 0 || priorMuStds.mu2 <= 0) return -Infinity;
 
-  const lpSlope = logNormalPdf(params.slope, priorMeans.slope, priorStdDevs.slope);
-  const lpIntercept = logNormalPdf(params.intercept, priorMeans.intercept, priorStdDevs.intercept);
-  const lpSigma = logNormalPdf(params.sigma, priorMeans.sigma, priorStdDevs.sigma);
+  const lpTau = -Math.log(DAY_END - DAY_START);
+  const lpMu1 = logNormalPdf(params.mu1, priorMuMeans.mu1, priorMuStds.mu1);
+  const lpMu2 = logNormalPdf(params.mu2, priorMuMeans.mu2, priorMuStds.mu2);
 
-  return lpSlope + lpIntercept + lpSigma;
+  return lpTau + lpMu1 + lpMu2;
 }
 
 /** Log-posterior = log-likelihood + log-prior */
 export function logPosterior(
   params: Params,
   data: DataPoint[],
-  priorMeans: Params,
-  priorStdDevs: Params,
+  knownSigma: number,
+  priorMuMeans: PriorMuMeans,
+  priorMuStds: PriorMuStds,
 ): number {
-  const lp = logPrior(params, priorMeans, priorStdDevs);
+  const lp = logPrior(params, priorMuMeans, priorMuStds);
   if (lp === -Infinity) return -Infinity;
-  return logLikelihood(params, data) + lp;
+  return logLikelihood(params, data, knownSigma) + lp;
 }

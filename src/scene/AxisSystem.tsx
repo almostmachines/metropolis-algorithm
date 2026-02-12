@@ -5,9 +5,9 @@ import axisFontUrl from 'three/examples/fonts/ttf/kenpixel.ttf?url';
 
 interface AxisSystemProps {
   bounds: {
-    slope: [number, number];
-    intercept: [number, number];
-    sigma: [number, number];
+    tau: [number, number];
+    mu1: [number, number];
+    mu2: [number, number];
   };
 }
 
@@ -31,15 +31,15 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
     return grid;
   }, []);
 
-  const slopeTicks = generateTicks(bounds.slope[0], bounds.slope[1], 5);
-  const interceptTicks = generateTicks(bounds.intercept[0], bounds.intercept[1], 5);
-  const sigmaTicks = generateTicks(bounds.sigma[0], bounds.sigma[1], 5);
+  const tauTicks = generateTicks(bounds.tau[0], bounds.tau[1], 5);
+  const mu1Ticks = generateTicks(bounds.mu1[0], bounds.mu1[1], 5);
+  const mu2Ticks = generateTicks(bounds.mu2[0], bounds.mu2[1], 5);
 
   return (
     <>
       <primitive object={gridHelper} />
 
-      {/* X axis (slope) */}
+      {/* X axis (τ) */}
       <group>
         <mesh position={[5, 0, 0]}>
           <boxGeometry args={[10, 0.02, 0.02]} />
@@ -52,10 +52,10 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
           anchorX="center"
           font={axisFontUrl}
         >
-          slope
+          τ
         </Text>
-        {slopeTicks.map((val, i) => {
-          const x = ((val - bounds.slope[0]) / (bounds.slope[1] - bounds.slope[0])) * 10;
+        {tauTicks.map((val, i) => {
+          const x = ((val - bounds.tau[0]) / (bounds.tau[1] - bounds.tau[0])) * 10;
           return (
             <Text
               key={`sx-${i}`}
@@ -71,7 +71,7 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
         })}
       </group>
 
-      {/* Y axis (intercept) */}
+      {/* Y axis (μ₁) */}
       <group>
         <mesh position={[0, 5, 0]}>
           <boxGeometry args={[0.02, 10, 0.02]} />
@@ -85,10 +85,10 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
           rotation={[0, 0, Math.PI / 2]}
           font={axisFontUrl}
         >
-          intercept
+          μ1
         </Text>
-        {interceptTicks.map((val, i) => {
-          const y = ((val - bounds.intercept[0]) / (bounds.intercept[1] - bounds.intercept[0])) * 10;
+        {mu1Ticks.map((val, i) => {
+          const y = ((val - bounds.mu1[0]) / (bounds.mu1[1] - bounds.mu1[0])) * 10;
           return (
             <Text
               key={`iy-${i}`}
@@ -104,7 +104,7 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
         })}
       </group>
 
-      {/* Z axis (sigma) */}
+      {/* Z axis (μ₂) */}
       <group>
         <mesh position={[0, 0, 5]}>
           <boxGeometry args={[0.02, 0.02, 10]} />
@@ -117,10 +117,10 @@ export function AxisSystem({ bounds }: AxisSystemProps) {
           anchorX="center"
           font={axisFontUrl}
         >
-          sigma
+          μ2
         </Text>
-        {sigmaTicks.map((val, i) => {
-          const z = ((val - bounds.sigma[0]) / (bounds.sigma[1] - bounds.sigma[0])) * 10;
+        {mu2Ticks.map((val, i) => {
+          const z = ((val - bounds.mu2[0]) / (bounds.mu2[1] - bounds.mu2[0])) * 10;
           return (
             <Text
               key={`sz-${i}`}

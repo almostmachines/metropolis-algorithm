@@ -5,19 +5,23 @@ const {
   acceptanceProbability,
   logAcceptanceRatio,
 } = require('./.tmp/metropolis.cjs');
-const { createInitialState, algorithmReducer } = require('./.tmp/algorithm-state.cjs');
+const {
+  createInitialState,
+  algorithmReducer,
+} = require('./.tmp/algorithm-state.cjs');
 const { sanitizeAlgorithmConfig } = require('./.tmp/sanitize.cjs');
 
 function makeConfig(overrides = {}) {
   return {
     totalSamples: 10,
     burnInSamples: 0,
-    dataPoints: 5,
-    trueParams: { slope: 2.5, intercept: 5, sigma: 3 },
-    priorParams: { slope: 0, intercept: 0, sigma: 5 },
-    priorStdDevs: { slope: 10, intercept: 20, sigma: 10 },
-    initialParams: { slope: 0, intercept: 0, sigma: 5 },
-    proposalWidths: { slope: 0.3, intercept: 1, sigma: 0.5 },
+    observationCount: 10,
+    knownSigma: 0.9,
+    trueParams: { tau: 14.5, mu1: 12.3, mu2: 13.2 },
+    priorMuMeans: { mu1: 15, mu2: 15 },
+    priorMuStds: { mu1: 5, mu2: 5 },
+    initialParams: { tau: 12, mu1: 12, mu2: 13 },
+    proposalWidths: { tau: 0.1, mu1: 0.2, mu2: 0.2 },
     ...overrides,
   };
 }
@@ -38,93 +42,105 @@ test('sanitizeAlgorithmConfig clamps and rounds invalid numeric values', () => {
   const dirty = makeConfig({
     totalSamples: 0.2,
     burnInSamples: -7.8,
-    dataPoints: Number.NaN,
-    trueParams: { slope: Number.POSITIVE_INFINITY, intercept: Number.NaN, sigma: -3 },
-    priorParams: { slope: 1, intercept: 2, sigma: 0 },
-    priorStdDevs: { slope: 0, intercept: Number.NaN, sigma: -7 },
-    initialParams: { slope: 1, intercept: 2, sigma: 0 },
-    proposalWidths: { slope: 0, intercept: Number.NaN, sigma: -1 },
+    observationCount: Number.NaN,
+    knownSigma: -3,
+    trueParams: {
+      tau: Number.POSITIVE_INFINITY,
+      mu1: Number.NaN,
+      mu2: Number.POSITIVE_INFINITY,
+    },
+    priorMuMeans: { mu1: Number.NaN, mu2: Number.POSITIVE_INFINITY },
+    priorMuStds: { mu1: 0, mu2: Number.NaN },
+    initialParams: { tau: -7, mu1: Number.NaN, mu2: 22 },
+    proposalWidths: { tau: 0, mu1: Number.NaN, mu2: -1 },
   });
 
   const clean = sanitizeAlgorithmConfig(dirty);
 
   assert.equal(clean.totalSamples, 1);
   assert.equal(clean.burnInSamples, 0);
-  assert.equal(clean.dataPoints, 50);
-  assert.equal(clean.trueParams.slope, 2.5);
-  assert.equal(clean.trueParams.intercept, 5);
-  assert.equal(clean.trueParams.sigma, 0.01);
-  assert.equal(clean.priorParams.sigma, 0.01);
-  assert.equal(clean.priorStdDevs.slope, 0.01);
-  assert.equal(clean.priorStdDevs.intercept, 20);
-  assert.equal(clean.priorStdDevs.sigma, 0.01);
-  assert.equal(clean.initialParams.sigma, 0.01);
-  assert.equal(clean.proposalWidths.slope, 0.01);
-  assert.equal(clean.proposalWidths.intercept, 1);
-  assert.equal(clean.proposalWidths.sigma, 0.01);
+  assert.equal(clean.observationCount, 300);
+  assert.equal(clean.knownSigma, 0.01);
+  assert.equal(clean.trueParams.tau, 14.5);
+  assert.equal(clean.trueParams.mu1, 12.3);
+  assert.equal(clean.trueParams.mu2, 13.2);
+  assert.equal(clean.priorMuMeans.mu1, 15);
+  assert.equal(clean.priorMuMeans.mu2, 15);
+  assert.equal(clean.priorMuStds.mu1, 0.01);
+  assert.equal(clean.priorMuStds.mu2, 5);
+  assert.equal(clean.initialParams.tau, 0);
+  assert.equal(clean.initialParams.mu1, 12);
+  assert.equal(clean.initialParams.mu2, 22);
+  assert.equal(clean.proposalWidths.tau, 0.01);
+  assert.equal(clean.proposalWidths.mu1, 0.2);
+  assert.equal(clean.proposalWidths.mu2, 0.01);
 });
 
 test('createInitialState applies sanitization before generating data', () => {
   const state = createInitialState(
     makeConfig({
-      dataPoints: -10,
-      trueParams: { slope: 2, intercept: 3, sigma: 0 },
-      priorParams: { slope: 1, intercept: 2, sigma: -9 },
-      initialParams: { slope: 1, intercept: 2, sigma: -9 },
+      observationCount: -10,
+      knownSigma: 0,
+      initialParams: { tau: 30, mu1: 11, mu2: 14 },
     }),
   );
 
-  assert.equal(state.config.dataPoints, 1);
-  assert.equal(state.config.trueParams.sigma, 0.01);
-  assert.equal(state.config.initialParams.sigma, 0.01);
-  assert.equal(state.currentParams.sigma, 0.01);
+  assert.equal(state.config.observationCount, 1);
+  assert.equal(state.config.knownSigma, 0.01);
+  assert.equal(state.config.initialParams.tau, 24);
+  assert.equal(state.currentParams.tau, 24);
   assert.equal(state.data.length, 1);
+  assert.equal(Number.isFinite(state.data[0].time), true);
+  assert.equal(Number.isFinite(state.data[0].value), true);
 });
 
 test('NEXT_STEP uses configured prior belief means', () => {
   const state = createInitialState(makeConfig());
-  const current = { slope: 6, intercept: -8, sigma: 4 };
+  const current = { tau: 12, mu1: 6, mu2: 8 };
   const base = {
     ...state,
     currentParams: current,
     data: [],
     config: {
       ...state.config,
-      proposalWidths: { slope: 0, intercept: 0, sigma: 0 },
+      proposalWidths: { tau: 0, mu1: 0, mu2: 0 },
     },
   };
 
   const nearPrior = algorithmReducer(
     {
       ...base,
-      config: { ...base.config, priorParams: { ...current } },
+      config: { ...base.config, priorMuMeans: { mu1: 6, mu2: 8 } },
     },
     { type: 'NEXT_STEP' },
   );
   const farPrior = algorithmReducer(
     {
       ...base,
-      config: { ...base.config, priorParams: { slope: 0, intercept: 0, sigma: 5 } },
+      config: { ...base.config, priorMuMeans: { mu1: 0, mu2: 0 } },
     },
     { type: 'NEXT_STEP' },
   );
 
   assert.ok(nearPrior.stepResult);
   assert.ok(farPrior.stepResult);
-  assert.ok(nearPrior.stepResult.logPosteriorCurrent > farPrior.stepResult.logPosteriorCurrent);
+  assert.ok(
+    nearPrior.stepResult.logPosteriorCurrent >
+      farPrior.stepResult.logPosteriorCurrent,
+  );
 });
 
 test('NEXT_STEP uses configured prior belief standard deviations', () => {
   const state = createInitialState(makeConfig());
-  const current = { slope: 6, intercept: -8, sigma: 4 };
+  const current = { tau: 12, mu1: 6, mu2: 8 };
   const base = {
     ...state,
     currentParams: current,
     data: [],
     config: {
       ...state.config,
-      priorParams: { slope: 0, intercept: 0, sigma: 5 },
-      proposalWidths: { slope: 0, intercept: 0, sigma: 0 },
+      priorMuMeans: { mu1: 0, mu2: 0 },
+      proposalWidths: { tau: 0, mu1: 0, mu2: 0 },
     },
   };
 
@@ -133,7 +149,7 @@ test('NEXT_STEP uses configured prior belief standard deviations', () => {
       ...base,
       config: {
         ...base.config,
-        priorStdDevs: { slope: 100, intercept: 100, sigma: 100 },
+        priorMuStds: { mu1: 100, mu2: 100 },
       },
     },
     { type: 'NEXT_STEP' },
@@ -143,7 +159,7 @@ test('NEXT_STEP uses configured prior belief standard deviations', () => {
       ...base,
       config: {
         ...base.config,
-        priorStdDevs: { slope: 0.1, intercept: 0.1, sigma: 0.1 },
+        priorMuStds: { mu1: 0.1, mu2: 0.1 },
       },
     },
     { type: 'NEXT_STEP' },
@@ -151,17 +167,20 @@ test('NEXT_STEP uses configured prior belief standard deviations', () => {
 
   assert.ok(widePriorStd.stepResult);
   assert.ok(narrowPriorStd.stepResult);
-  assert.ok(widePriorStd.stepResult.logPosteriorCurrent > narrowPriorStd.stepResult.logPosteriorCurrent);
+  assert.ok(
+    widePriorStd.stepResult.logPosteriorCurrent >
+      narrowPriorStd.stepResult.logPosteriorCurrent,
+  );
 });
 
 test('NEXT_STEP keeps diagnostics numeric when both posteriors are impossible', () => {
   const state = createInitialState(makeConfig());
   const poisoned = {
     ...state,
-    currentParams: { ...state.currentParams, sigma: 0 },
+    currentParams: { ...state.currentParams, tau: -1 },
     config: {
       ...state.config,
-      proposalWidths: { slope: 0, intercept: 0, sigma: 0 },
+      proposalWidths: { tau: 0, mu1: 0, mu2: 0 },
     },
   };
 
@@ -173,11 +192,10 @@ test('NEXT_STEP keeps diagnostics numeric when both posteriors are impossible', 
   assert.equal(next.statusMessage.includes('NaN'), false);
 });
 
-test('NEXT_STEP treats sigma = 0.01 as valid prior support', () => {
+test('NEXT_STEP treats tau bounds as valid prior support', () => {
   const state = createInitialState(
     makeConfig({
-      priorParams: { slope: 0, intercept: 0, sigma: 0.01 },
-      initialParams: { slope: 0, intercept: 0, sigma: 0.01 },
+      initialParams: { tau: 0, mu1: 12, mu2: 13 },
     }),
   );
 
@@ -187,7 +205,7 @@ test('NEXT_STEP treats sigma = 0.01 as valid prior support', () => {
       data: [],
       config: {
         ...state.config,
-        proposalWidths: { slope: 0, intercept: 0, sigma: 0 },
+        proposalWidths: { tau: 0, mu1: 0, mu2: 0 },
       },
     },
     { type: 'NEXT_STEP' },
@@ -195,5 +213,8 @@ test('NEXT_STEP treats sigma = 0.01 as valid prior support', () => {
 
   assert.ok(next.stepResult);
   assert.equal(Number.isFinite(next.stepResult.logPosteriorCurrent), true);
-  assert.equal(next.stepResult.logPosteriorCurrent, next.stepResult.logPosteriorProposed);
+  assert.equal(
+    next.stepResult.logPosteriorCurrent,
+    next.stepResult.logPosteriorProposed,
+  );
 });

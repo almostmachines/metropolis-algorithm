@@ -1,15 +1,23 @@
 import type { DataPoint, Params } from '../types';
 import { randomNormal, randomUniform } from './random';
 
-export function generateData(trueParams: Params, n: number): DataPoint[] {
-  const data: DataPoint[] = [];
-  for (let i = 0; i < n; i++) {
-    const x = randomUniform(0, 10);
-    const y =
-      trueParams.slope * x +
-      trueParams.intercept +
-      randomNormal(0, trueParams.sigma);
-    data.push({ x, y });
-  }
-  return data;
+const DAY_START = 0;
+const DAY_END = 24;
+
+export function generateData(
+  trueParams: Params,
+  knownSigma: number,
+  observationCount: number,
+): DataPoint[] {
+  const times = Array.from({ length: observationCount }, () =>
+    randomUniform(DAY_START, DAY_END),
+  ).sort((a, b) => a - b);
+
+  return times.map((time) => {
+    const mean = time < trueParams.tau ? trueParams.mu1 : trueParams.mu2;
+    return {
+      time,
+      value: randomNormal(mean, knownSigma),
+    };
+  });
 }

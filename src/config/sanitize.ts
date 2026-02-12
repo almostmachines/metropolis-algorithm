@@ -1,8 +1,10 @@
 import { DEFAULT_CONFIG, type AlgorithmConfig, type Params } from '../types';
 
-const MIN_SIGMA = 0.01;
+const MIN_KNOWN_SIGMA = 0.01;
 const MIN_PROPOSAL_WIDTH = 0.01;
-const MIN_PRIOR_STD_DEV = 0.01;
+const MIN_PRIOR_STD = 0.01;
+const DAY_START = 0;
+const DAY_END = 24;
 
 function finiteNumber(value: number, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
@@ -13,20 +15,55 @@ function boundedInteger(value: number, fallback: number, min: number): number {
   return Math.max(min, Math.round(finite));
 }
 
-function sanitizeParams(params: Params, fallback: Params, sigmaMin: number): Params {
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function sanitizeParams(params: Params, fallback: Params): Params {
   return {
-    slope: finiteNumber(params.slope, fallback.slope),
-    intercept: finiteNumber(params.intercept, fallback.intercept),
-    sigma: Math.max(sigmaMin, finiteNumber(params.sigma, fallback.sigma)),
+    tau: clamp(finiteNumber(params.tau, fallback.tau), DAY_START, DAY_END),
+    mu1: finiteNumber(params.mu1, fallback.mu1),
+    mu2: finiteNumber(params.mu2, fallback.mu2),
   };
 }
 
-function sanitizePositiveParams(params: Params | undefined, fallback: Params, min: number): Params {
-  const source = params ?? fallback;
+function sanitizePriorMuMeans(
+  means: AlgorithmConfig['priorMuMeans'] | undefined,
+  fallback: AlgorithmConfig['priorMuMeans'],
+): AlgorithmConfig['priorMuMeans'] {
+  const source = means ?? fallback;
   return {
-    slope: Math.max(min, finiteNumber(source.slope, fallback.slope)),
-    intercept: Math.max(min, finiteNumber(source.intercept, fallback.intercept)),
-    sigma: Math.max(min, finiteNumber(source.sigma, fallback.sigma)),
+    mu1: finiteNumber(source.mu1, fallback.mu1),
+    mu2: finiteNumber(source.mu2, fallback.mu2),
+  };
+}
+
+function sanitizePriorMuStds(
+  stds: AlgorithmConfig['priorMuStds'] | undefined,
+  fallback: AlgorithmConfig['priorMuStds'],
+): AlgorithmConfig['priorMuStds'] {
+  const source = stds ?? fallback;
+  return {
+    mu1: Math.max(MIN_PRIOR_STD, finiteNumber(source.mu1, fallback.mu1)),
+    mu2: Math.max(MIN_PRIOR_STD, finiteNumber(source.mu2, fallback.mu2)),
+  };
+}
+
+function sanitizeProposalWidths(params: Params | undefined, fallback: Params): Params {
+  const widths = params ?? fallback;
+  return {
+    tau: Math.max(
+      MIN_PROPOSAL_WIDTH,
+      finiteNumber(widths.tau, fallback.tau),
+    ),
+    mu1: Math.max(
+      MIN_PROPOSAL_WIDTH,
+      finiteNumber(widths.mu1, fallback.mu1),
+    ),
+    mu2: Math.max(
+      MIN_PROPOSAL_WIDTH,
+      finiteNumber(widths.mu2, fallback.mu2),
+    ),
   };
 }
 
@@ -34,28 +71,24 @@ export function sanitizeAlgorithmConfig(config: AlgorithmConfig): AlgorithmConfi
   return {
     totalSamples: boundedInteger(config.totalSamples, DEFAULT_CONFIG.totalSamples, 1),
     burnInSamples: boundedInteger(config.burnInSamples, DEFAULT_CONFIG.burnInSamples, 0),
-    dataPoints: boundedInteger(config.dataPoints, DEFAULT_CONFIG.dataPoints, 1),
-    trueParams: sanitizeParams(config.trueParams, DEFAULT_CONFIG.trueParams, MIN_SIGMA),
-    priorParams: sanitizeParams(config.priorParams, DEFAULT_CONFIG.priorParams, MIN_SIGMA),
-    priorStdDevs: sanitizePositiveParams(
-      config.priorStdDevs,
-      DEFAULT_CONFIG.priorStdDevs,
-      MIN_PRIOR_STD_DEV,
+    observationCount: boundedInteger(config.observationCount, DEFAULT_CONFIG.observationCount, 1),
+    knownSigma: Math.max(
+      MIN_KNOWN_SIGMA,
+      finiteNumber(config.knownSigma, DEFAULT_CONFIG.knownSigma),
     ),
-    initialParams: sanitizeParams(config.initialParams, DEFAULT_CONFIG.initialParams, MIN_SIGMA),
-    proposalWidths: {
-      slope: Math.max(
-        MIN_PROPOSAL_WIDTH,
-        finiteNumber(config.proposalWidths.slope, DEFAULT_CONFIG.proposalWidths.slope),
-      ),
-      intercept: Math.max(
-        MIN_PROPOSAL_WIDTH,
-        finiteNumber(config.proposalWidths.intercept, DEFAULT_CONFIG.proposalWidths.intercept),
-      ),
-      sigma: Math.max(
-        MIN_PROPOSAL_WIDTH,
-        finiteNumber(config.proposalWidths.sigma, DEFAULT_CONFIG.proposalWidths.sigma),
-      ),
-    },
+    trueParams: sanitizeParams(config.trueParams, DEFAULT_CONFIG.trueParams),
+    priorMuMeans: sanitizePriorMuMeans(
+      config.priorMuMeans,
+      DEFAULT_CONFIG.priorMuMeans,
+    ),
+    priorMuStds: sanitizePriorMuStds(
+      config.priorMuStds,
+      DEFAULT_CONFIG.priorMuStds,
+    ),
+    initialParams: sanitizeParams(config.initialParams, DEFAULT_CONFIG.initialParams),
+    proposalWidths: sanitizeProposalWidths(
+      config.proposalWidths,
+      DEFAULT_CONFIG.proposalWidths,
+    ),
   };
 }
