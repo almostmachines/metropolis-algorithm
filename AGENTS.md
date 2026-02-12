@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Description
-Interactive 3D visualization of Metropolis algorithm MCMC applied to Bayesian linear regression (slope, intercept, sigma). React + TypeScript + Vite, with react-three-fiber for 3D and Tailwind CSS v4.
+Interactive 3D visualization of Metropolis-Hastings MCMC applied to Bayesian change-point detection over a 24-hour period. The model samples `tau`, `mu1`, and `mu2` while using known observation `sigma` in the likelihood. React + TypeScript + Vite, with react-three-fiber for 3D and Tailwind CSS v4.
 
 ## Project Structure & Module Organization
 Core code lives in `src/` and is split by responsibility:
@@ -31,7 +31,7 @@ Keep algorithm logic isolated in `src/engine/` and state transitions in `src/sta
 
 ## Testing Guidelines
 Testing uses Node’s built-in `node:test` with `assert/strict`. Add tests under `tests/*.test.cjs`, following the existing `calculations` pattern. Prioritize deterministic coverage for:
-- numeric edge cases (`NaN`, `Infinity`, bounds like sigma minimum),
+- numeric edge cases (`NaN`, `Infinity`, bounds like tau in `[0,24]`, positive prior stds, known sigma minimum),
 - acceptance ratio/probability behavior,
 - reducer transitions and config sanitization.
 
