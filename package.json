@@ -1,6 +1,6 @@
 {
   "name": "@almostmachines/metropolis-cpd",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "module": "dist/metropolis-cpd.js",
   "types": "dist/lib.d.ts",
@@ -25,7 +25,7 @@
     "preview": "vite preview",
     "test": "npm run test:calculations",
     "test:calculations": "mkdir -p tests/.tmp && npx esbuild src/engine/metropolis.ts --bundle --platform=node --format=cjs --outfile=tests/.tmp/metropolis.cjs && npx esbuild src/state/algorithm-state.ts --bundle --platform=node --format=cjs --outfile=tests/.tmp/algorithm-state.cjs && npx esbuild src/config/sanitize.ts --bundle --platform=node --format=cjs --outfile=tests/.tmp/sanitize.cjs && node --test tests/calculations.test.cjs",
-    "prepublishOnly": "npm run build:lib"
+    "prepare": "npm run build:lib"
   },
   "peerDependencies": {
     "@react-three/drei": "^10.0.0",
