@@ -1,5 +1,5 @@
 {
-  "name": "@almostmachines/metropolis-cpd",
+  "name": "metropolis-cpd",
   "version": "0.1.0",
   "type": "module",
   "module": "dist/metropolis-cpd.js",
