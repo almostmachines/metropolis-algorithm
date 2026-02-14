@@ -20,7 +20,7 @@ export function SceneRoot({ state }: SceneRootProps) {
   return (
     <div className="relative min-h-[60vh] md:min-h-0 md:flex-1">
       <Canvas
-        camera={{ position: [10, 11, 20], fov: 50, near: 0.1, far: 200 }}
+        camera={{ position: [-5, 5, 20], fov: 50, near: 0.1, far: 200 }}
         style={{ background: '#0f172a' }}
       >
         <ambientLight intensity={0.6} />
@@ -55,7 +55,7 @@ export function SceneRoot({ state }: SceneRootProps) {
         <OrbitControls
           enableDamping
           dampingFactor={0.1}
-          target={[0, 4, 0]}
+          target={[5, 5, 5]}
           minDistance={5}
           maxDistance={50}
         />
